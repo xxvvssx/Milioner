@@ -2235,6 +2235,7 @@
     answered: false, myChoice: null,
     timeLeft: DUEL_TIME, deadline: 0,
     hostTimerId: null, clientTimerId: null, roundTimerId: null, countdownId: null,
+    closingByUs: false,           // мы сами закрываем соединение — не показываем «отключился»
   };
 
   function mpStatus(text) { $('#mp-status').textContent = text; }
@@ -2267,7 +2268,16 @@
 
   function mpCleanup() {
     mpClearTimers();
-    if (mp.conn) { try { mp.conn.close(); } catch (e) {} mp.conn = null; }
+    if (mp.conn) {
+      // Убираем обработчик close и закрываем сами — окно «Соперник отключился» не покажется
+      mp.closingByUs = true;
+      if (typeof mp.conn.removeAllListeners === 'function') {
+        try { mp.conn.removeAllListeners('close'); } catch (e) {}
+      }
+      try { mp.conn.close(); } catch (e) {}
+      mp.conn = null;
+      setTimeout(() => { mp.closingByUs = false; }, 0);
+    }
     if (mp.peer) { try { mp.peer.destroy(); } catch (e) {} mp.peer = null; }
     mp.isHost = false; mp.running = false; mp.roundActive = false;
     mp.answered = false; mp.myChoice = null;
@@ -2280,8 +2290,8 @@
 
   // Выход из дуэли/лобби в главное меню (game_balance не затрагивается)
   function mpLeaveToMenu() {
+    showScreen('menu-screen'); // сначала меню: поздний close от нашей связи проигнорируется
     mpCleanup();
-    showScreen('menu-screen');
   }
 
   /* ---------------- Лобби: создание / подключение ---------------- */
@@ -2304,7 +2314,8 @@
       mpStatus('Ожидание соперника... Отправьте ссылку');
     });
     peer.on('connection', (conn) => { mp.conn = conn; mpSetupConnection(conn); });
-    peer.on('error', (err) => { mpStatus('Ошибка подключения: ' + err.type); });
+    peer.on('error', (err) => mpHandlePeerError(err));
+    peer.on('disconnected', () => { try { peer.reconnect(); } catch (e) {} }); // потеря брокера
   }
 
   function mpJoin(code) {
@@ -2322,7 +2333,8 @@
       mp.conn = conn;
       mpSetupConnection(conn);
     });
-    peer.on('error', (err) => { mpStatus('Ошибка подключения: ' + err.type); });
+    peer.on('error', (err) => mpHandlePeerError(err));
+    peer.on('disconnected', () => { try { peer.reconnect(); } catch (e) {} }); // потеря брокера
   }
 
   function mpSetupConnection(conn) {
@@ -2334,6 +2346,8 @@
 
   // У обоих игроков: «Игрок найден! Старт через 3... 2... 1...»
   function mpOnConnected() {
+    // Новое подключение после обрыва — убираем старое окно «Соперник отключился»
+    if (!$('#modal-duel-result').classList.contains('hidden')) closeModal('modal-duel-result');
     let n = 3;
     mpStatus('Игрок найден! Старт через ' + n + '...');
     mp.countdownId = setInterval(() => {
@@ -2353,19 +2367,38 @@
     }, 1000);
   }
 
+  // Обрыв связи: соперник закрыл браузер/вкладку или пропала сеть.
+  // Всегда показываем окно «Соперник отключился», останавливаем игру
+  // и возвращаем игрока в главное меню (кнопка/Esc/фон модалки).
   function mpOnConnectionClosed() {
-    if (mp.running) {
-      mp.running = false;
-      mp.roundActive = false;
-      mpClearTimers();
-      $('#duel-result-icon').textContent = '🔌';
-      $('#duel-result-title').textContent = 'Соперник отключился!';
-      $('#duel-result-title').className = 'text-3xl font-extrabold mb-3 text-rose-400';
-      $('#duel-result-score').textContent = 'Вы: ' + mpMyScore() + ' оч. | Соперник: ' + mpOppScore() + ' оч.';
-      openModal('modal-duel-result');
-    } else {
-      mpStatus('Соперник отключился. Попробуйте снова.');
+    // Не показываем окно, если связь закрыли мы сами при выходе в меню
+    if (mp.closingByUs) return;
+    // Уже в главном меню — окно не нужно
+    if (!$('#menu-screen').classList.contains('hidden')) return;
+
+    const wasRunning = mp.running;
+    mp.running = false;
+    mp.roundActive = false;
+    mpClearTimers();
+
+    $('#duel-result-icon').textContent = '🔌';
+    $('#duel-result-title').textContent = 'Соперник отключился!';
+    $('#duel-result-title').className = 'text-3xl font-extrabold mb-3 text-rose-400';
+    $('#duel-result-score').textContent = wasRunning
+      ? 'Вы: ' + mpMyScore() + ' оч. | Соперник: ' + mpOppScore() + ' оч.'
+      : 'Матч не состоялся — соперник покинул комнату';
+    openModal('modal-duel-result');
+  }
+
+  // Сетевые ошибки PeerJS: во время матча считаем обрывом связи
+  function mpHandlePeerError(err) {
+    const networkErrors = ['peer-unavailable', 'network', 'server-error', 'socket-error', 'socket-closed', 'webrtc'];
+    if (mp.running && networkErrors.indexOf(err.type) >= 0) {
+      mpOnConnectionClosed();
+      return;
     }
+    if (err.type === 'peer-unavailable') mpStatus('Комната не найдена — проверьте код комнаты');
+    else mpStatus('Ошибка подключения: ' + err.type);
   }
 
   /* ---------------- Матч (хост = локальный сервер) ---------------- */
