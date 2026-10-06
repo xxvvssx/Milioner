@@ -408,12 +408,15 @@
         <div id="mp-create-card" class="glass rounded-3xl border border-slate-700/60 p-6 text-center">
           <div class="text-4xl mb-3">🎯</div>
           <h3 class="text-xl font-extrabold text-gold-400 mb-2">Создать дуэль</h3>
-          <p class="text-sm text-slate-400 mb-4">Вы — Игрок 1 (хост). Отправьте ссылку сопернику и ждите его подключения.</p>
+          <p class="text-sm text-slate-400 mb-4">Вы — Игрок 1 (хост). Отправьте сопернику 4-значный код или ссылку и ждите подключения.</p>
           <button id="btn-mp-create" class="w-full py-3 rounded-xl font-bold bg-gradient-to-r from-gold-500 to-gold-400 text-slate-900 hover:brightness-110 transition">Создать комнату</button>
           <div id="mp-create-box" class="hidden mt-4 text-left">
+            <div class="text-[11px] uppercase tracking-widest text-slate-400 mb-1">Код комнаты</div>
+            <div id="mp-room-code-digits" class="text-3xl font-extrabold text-gold-400 tracking-[0.35em] pl-[0.35em] text-center glass rounded-xl py-3 mb-3 border border-slate-600/60">—</div>
             <div class="text-[11px] uppercase tracking-widest text-slate-400 mb-1">Ссылка для соперника</div>
             <div id="mp-room-code" class="text-xs text-blue-300 break-all glass rounded-xl p-3 mb-3 border border-slate-600/60">—</div>
             <button id="btn-mp-copy" class="w-full py-2.5 rounded-xl font-bold border border-emerald-400/50 text-emerald-300 hover:bg-emerald-500/15 transition">📋 Скопировать ссылку</button>
+            <button id="btn-mp-copy-code" class="w-full mt-2 py-2.5 rounded-xl font-bold border border-gold-400/50 text-gold-400 hover:bg-gold-500/15 transition">🔢 Скопировать код</button>
 
             <!-- Выбор темы вопросов (только для Хоста, до начала матча) -->
             <div class="mt-4">
@@ -435,9 +438,10 @@
         <div class="glass rounded-3xl border border-slate-700/60 p-6 text-center">
           <div class="text-4xl mb-3">🔗</div>
           <h3 class="text-xl font-extrabold text-blue-300 mb-2">Присоединиться</h3>
-          <p class="text-sm text-slate-400 mb-4">Введите код комнаты соперника — или просто откройте его ссылку.</p>
-          <input id="mp-room-input" type="text" placeholder="Код комнаты, напр. duel-a1b2c3"
-            class="w-full mb-3 px-4 py-2.5 rounded-xl glass border border-slate-600/60 text-sm text-white text-center placeholder:text-slate-500 focus:border-gold-400/60 outline-none">
+          <p class="text-sm text-slate-400 mb-4">Введите 4-значный код комнаты соперника — или просто откройте его ссылку.</p>
+          <input id="mp-room-input" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off"
+            placeholder="Введите 4 цифры (напр. 4829)"
+            class="w-full mb-3 px-4 py-2.5 rounded-xl glass border border-slate-600/60 text-lg font-semibold tracking-[0.3em] pl-[0.3em] text-white text-center placeholder:text-sm placeholder:font-normal placeholder:tracking-normal placeholder:text-slate-500 focus:border-gold-400/60 outline-none">
           <button id="btn-mp-join" class="w-full py-3 rounded-xl font-bold bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:brightness-110 transition">Присоединиться</button>
         </div>
       </div>
@@ -4111,13 +4115,17 @@
   const DUEL_PTS_WRONG = -50;       // очков за ошибку
   const DUEL_ROOM_BASE = 'https://xxvvssx.github.io/'; // база ссылки для прод-ссылок
   const MP_MIN_CATEGORY_QUESTIONS = 10;  // темы с меньшим числом вопросов не показываем
+  const ROOM_CODE_LEN = 4;              // код комнаты, который видит игрок — ровно 4 цифры
+  const ROOM_ID_PREFIX = 'duel-';       // внутренний префикс PeerJS (в ссылке ?room= его сохраняем)
+  const ROOM_CODE_RETRIES = 5;          // попытки подобрать свободный 4-значный номер
   // Иконки крупных блоков (единый источник — CATEGORY_EMOJI выше)
   const MP_CATEGORY_EMOJI = CATEGORY_EMOJI;
 
   const mp = {
     peer: null, conn: null,
     isHost: false, myPlayer: 1,      // 1 = хост (Игрок 1), 2 = гость (Игрок 2)
-    roomCode: null,
+    roomCode: null,                  // внутренний id комнаты для PeerJS: 'duel-4829'
+    roomDigits: null,                // 4 цифры кода — то, что показываем игроку
     questions: [], qIndex: 0,
     scores: { p1: 0, p2: 0 },
     blocked: { 1: false, 2: false },
@@ -4263,8 +4271,13 @@
     mp.questions = []; mp.qIndex = 0;
     mp.scores = { p1: 0, p2: 0 };
     mp.blocked = { 1: false, 2: false };
+    mp.roomCode = null; mp.roomDigits = null;
     $('#mp-create-box').classList.add('hidden');
-    $('#mp-room-input').value = '';
+    const roomInput = $('#mp-room-input');
+    roomInput.value = '';
+    delete roomInput.dataset.legacy;          // забываем запомненную старую ссылку
+    $('#mp-room-code-digits').textContent = '—';
+    $('#mp-room-code').textContent = '—';
     $('#duel-round-topic').classList.add('hidden');
     mpToggleCategoryMenu(false); // список тем всегда закрыт при выходе
   }
@@ -4274,6 +4287,53 @@
     mpCleanup();
   }
 
+  /* ---------------- Код комнаты: генерация / чистка ввода ----------------
+     Игроку показываем ТОЛЬКО 4 цифры. Внутри PeerJS работает id 'duel-4829',
+     в ссылке префикс сохраняем (?room=duel-4829) — старые ссылки не ломаются. */
+
+  // 4 случайные цифры с сохранением ведущих нулей: "0012", "4829"
+  function generateRoomCode() {
+    const max = Math.pow(10, ROOM_CODE_LEN);  // 10 000 вариантов
+    return String(Math.floor(Math.random() * max)).padStart(ROOM_CODE_LEN, '0');
+  }
+
+  // Внутренний id комнаты для PeerJS: 'duel-4829'
+  function roomPeerId(code) { return ROOM_ID_PREFIX + code; }
+
+  // Из любого текста, ссылки или старого id достаём ТОЛЬКО цифры (максимум 4):
+  // "duel-4829" → "4829", "https://site/?room=duel-0512" → "0512", "4 8-2 9" → "4829"
+  function cleanInputCode(input) {
+    let s = String(input == null ? '' : input).trim();
+    const param = s.match(/[?&]room=([^&#\s]+)/i);   // вставили ссылку целиком — берём ?room=…
+    if (param) s = param[1];
+    s = s.replace(/^(?:duel-?)+/i, '');              // срезаем префикс duel-
+    s = s.replace(/\D+/g, '');                       // буквы, пробелы, дефисы, знаки — вон
+    return s.slice(0, ROOM_CODE_LEN);                // ровно 4 цифры (ведущие нули сохраняются)
+  }
+
+  // Совместимость: ссылки старого формата (?room=duel-a1b2c3) принимаем как есть
+  function legacyRoomId(input) {
+    let s = String(input == null ? '' : input).trim();
+    const param = s.match(/[?&]room=([^&#\s]+)/i);
+    if (param) s = param[1];
+    s = s.replace(/^.*\//, '');                      // «…/duel-a1b2c3» → «duel-a1b2c3»
+    return /^duel-(?![0-9]{4}$)[A-Za-z0-9]+$/i.test(s) ? s : '';
+  }
+
+  // Id для подключения: новый 4-значный код или старый id; '' — если ничего не распознано
+  function resolveRoomId(input) {
+    const legacy = legacyRoomId(input);
+    if (legacy) return legacy;
+    const code = cleanInputCode(input);
+    return code.length === ROOM_CODE_LEN ? roomPeerId(code) : '';
+  }
+
+  // 4 цифры для показа игроку ('' — если код распознать не удалось)
+  function displayCode(input) {
+    const code = cleanInputCode(input);
+    return code.length === ROOM_CODE_LEN ? code : '';
+  }
+
   /* ---------------- Лобби: создание / подключение ---------------- */
   function mpCreate() {
     if (typeof Peer === 'undefined') { mpStatus('⚠️ PeerJS не загрузился — проверьте интернет-соединение'); return; }
@@ -4281,35 +4341,55 @@
     mp.isHost = true;
     mp.myPlayer = 1;
     mpStatus('Создаём комнату...');
-    const code = 'duel-' + Math.random().toString(36).slice(2, 8);
-    const peer = new Peer(code);
+    mpCreateRoom(generateRoomCode(), 0);
+  }
+
+  // Создание комнаты по 4-значному коду; если номер занят — молча пробуем следующий
+  function mpCreateRoom(code, attempt) {
+    const id = roomPeerId(code);
+    const peer = new Peer(id);
     mp.peer = peer;
-    peer.on('open', (id) => {
-      mp.roomCode = id;
-      // На github.io ссылка получится https://xxvvssx.github.io/?room=ID,
+    mp.roomCode = id;
+    mp.roomDigits = code;
+    peer.on('open', () => {
+      // На github.io ссылка получится https://xxvvssx.github.io/?room=duel-4829,
       // локально — origin текущей страницы (та же разметка ?room=)
       const base = location.protocol.startsWith('http') ? location.origin + location.pathname : DUEL_ROOM_BASE;
+      $('#mp-room-code-digits').textContent = code;
       $('#mp-room-code').textContent = base + '?room=' + id;
       $('#mp-create-box').classList.remove('hidden');
-      mpStatus('Ожидание соперника... Отправьте ссылку');
+      mpStatus('Ожидание соперника... Код комнаты: ' + code);
     });
     peer.on('connection', (conn) => { mp.conn = conn; mpSetupConnection(conn); });
-    peer.on('error', (err) => mpHandlePeerError(err));
+    peer.on('error', (err) => {
+      // 10 000 номеров на всех — при коллизии подбираем другой код, игроку не мешаем
+      if (err.type === 'unavailable-id' && !mp.conn && attempt < ROOM_CODE_RETRIES) {
+        try { peer.destroy(); } catch (e) {}
+        if (mp.peer === peer) mp.peer = null;
+        mpStatus('Код занят — подбираем другой...');
+        mpCreateRoom(generateRoomCode(), attempt + 1);
+        return;
+      }
+      mpHandlePeerError(err);
+    });
     peer.on('disconnected', () => { try { peer.reconnect(); } catch (e) {} }); // потеря брокера
   }
 
-  function mpJoin(code) {
+  function mpJoin(rawInput) {
     if (typeof Peer === 'undefined') { mpStatus('⚠️ PeerJS не загрузился — проверьте интернет-соединение'); return; }
-    code = String(code || '').trim();
-    if (!code) { mpStatus('Введите код комнаты'); return; }
+    const id = resolveRoomId(rawInput);
+    if (!id) { mpStatus('Введите 4 цифры кода комнаты (напр. 4829)'); return; }
+    const shown = displayCode(id) || id;   // игроку показываем только 4 цифры
     mpCleanup();
     mp.isHost = false;
     mp.myPlayer = 2;
-    mpStatus('Подключение к комнате ' + code + '...');
+    mp.roomCode = id;
+    mp.roomDigits = displayCode(id) || null;
+    mpStatus('Подключение к комнате ' + shown + '...');
     const peer = new Peer();
     mp.peer = peer;
     peer.on('open', () => {
-      const conn = peer.connect(code, { reliable: true });
+      const conn = peer.connect(id, { reliable: true });
       mp.conn = conn;
       mpSetupConnection(conn);
     });
@@ -4378,6 +4458,7 @@
       return;
     }
     if (err.type === 'peer-unavailable') mpStatus('Комната не найдена — проверьте код комнаты');
+    else if (err.type === 'unavailable-id') mpStatus('Все 4-значные номера заняты — попробуйте создать комнату снова');
     else mpStatus('Ошибка подключения: ' + err.type);
   }
 
@@ -4745,20 +4826,60 @@
   $('#btn-mp').addEventListener('click', () => { Audio.click(); showScreen('mp-screen'); });
   $('#btn-mp-back').addEventListener('click', () => { Audio.click(); showScreen('menu-screen'); });
   $('#btn-mp-create').addEventListener('click', () => { Audio.click(); mpCreate(); });
-  $('#btn-mp-join').addEventListener('click', () => { Audio.click(); mpJoin($('#mp-room-input').value); });
-  $('#mp-room-input').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') { Audio.click(); mpJoin($('#mp-room-input').value); }
+
+  // ===== Код комнаты: в поле допустимы только 4 цифры =====
+  function mpRoomInput() { return $('#mp-room-input'); }
+
+  // Значение для подключения: 4 цифры из поля либо запомненная ссылка старого формата
+  function mpRoomInputId() {
+    const el = mpRoomInput();
+    const code = cleanInputCode(el.value);
+    return code.length === ROOM_CODE_LEN ? code : (el.dataset.legacy || '');
+  }
+
+  // Ручной ввод: выкидываем всё, кроме цифр (максимум 4)
+  mpRoomInput().addEventListener('input', (e) => {
+    e.target.value = cleanInputCode(e.target.value);
+    delete e.target.dataset.legacy;              // ввод вручную отменяет «память» о старой ссылке
   });
-  $('#btn-mp-copy').addEventListener('click', () => {
-    Audio.click();
-    const text = $('#mp-room-code').textContent;
+
+  // Вставка (в т.ч. ссылки целиком): берём из буфера только 4 цифры кода
+  mpRoomInput().addEventListener('paste', (e) => {
+    e.preventDefault();
+    const clip = e.clipboardData || window.clipboardData;
+    const text = clip ? clip.getData('text') : '';
+    const el = mpRoomInput();
+    const caret = el.selectionStart == null ? el.value.length : el.selectionStart;
+    el.value = cleanInputCode(el.value.slice(0, caret) + text);
+    el.setSelectionRange(el.value.length, el.value.length);
+    const legacy = legacyRoomId(text);           // ссылка старого формата — запоминаем и умеем подключить
+    if (legacy) el.dataset.legacy = legacy; else delete el.dataset.legacy;
+  });
+
+  $('#btn-mp-join').addEventListener('click', () => { Audio.click(); mpJoin(mpRoomInputId()); });
+  mpRoomInput().addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { Audio.click(); mpJoin(mpRoomInputId()); }
+  });
+
+  // Копирование в буфер (запасной prompt для http и старых браузеров)
+  function copyToClipboard(text, okMessage) {
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text)
-        .then(() => mpStatus('Ссылка скопирована! Отправьте её сопернику.'))
-        .catch(() => window.prompt('Скопируйте ссылку:', text));
+        .then(() => mpStatus(okMessage))
+        .catch(() => window.prompt('Скопируйте:', text));
     } else {
-      window.prompt('Скопируйте ссылку:', text);
+      window.prompt('Скопируйте:', text);
     }
+  }
+  $('#btn-mp-copy').addEventListener('click', () => {
+    Audio.click();
+    copyToClipboard($('#mp-room-code').textContent, 'Ссылка скопирована! Отправьте её сопернику.');
+  });
+  $('#btn-mp-copy-code').addEventListener('click', () => {
+    Audio.click();
+    const code = cleanInputCode($('#mp-room-code-digits').textContent);
+    if (code.length !== ROOM_CODE_LEN) { mpStatus('Сначала создайте комнату'); return; }
+    copyToClipboard(code, 'Код комнаты ' + code + ' скопирован! Отправьте его сопернику.');
   });
 
   // Тема вопросов дуэли: кастомный dropdown, меняет ТОЛЬКО хост
@@ -4857,12 +4978,17 @@
   mpBuildCategoryMenu(); // кастомный список тем для лобби мультиплеера
   checkBurnedFlag(); // перезагрузка после «сгорания» — показываем предупреждение
 
-  // Мультиплеер: автоподключение при открытии по ссылке ?room=ID_КОМНАТЫ
+  // Мультиплеер: автоподключение при открытии по ссылке ?room=duel-4829 (или ?room=4829)
   const roomParam = new URLSearchParams(window.location.search).get('room');
   if (roomParam) {
+    const roomId = resolveRoomId(roomParam);
     showScreen('mp-screen');
-    mpStatus('Подключение по ссылке: ' + roomParam + '...');
-    setTimeout(() => mpJoin(roomParam), 500);
+    if (roomId) {
+      mpStatus('Подключение по ссылке к комнате ' + (displayCode(roomId) || roomId) + '...');
+      setTimeout(() => mpJoin(roomId), 500);
+    } else {
+      mpStatus('В ссылке нет 4-значного кода комнаты — введите его вручную');
+    }
   }
   </script>
 </body>
