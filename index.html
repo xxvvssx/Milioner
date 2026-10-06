@@ -187,19 +187,19 @@
         <button data-diff="easy" class="diff-card relative glass rounded-3xl border border-slate-700/60 p-6 text-center hover:-translate-y-1">
           <div class="text-5xl mb-3">🌱</div>
           <h3 class="text-2xl font-extrabold text-emerald-400">Лёгкий</h3>
-          <p class="text-sm text-white mt-2">Простые вопросы<br>для разминки</p>
+          <p class="text-sm text-white mt-2">Тренировочный режим<br><span class="text-emerald-300 font-semibold">без попыток · без награды</span></p>
           <span class="diff-mark absolute top-4 right-4 text-2xl text-gold-400">✓</span>
         </button>
         <button data-diff="medium" class="diff-card selected relative glass rounded-3xl border border-slate-700/60 p-6 text-center hover:-translate-y-1">
           <div class="text-5xl mb-3">⚡</div>
           <h3 class="text-2xl font-extrabold text-gold-400">Средний</h3>
-          <p class="text-sm text-white mt-2">Золотая середина<br>для эрудитов</p>
+          <p class="text-sm text-white mt-2">Стандартный режим<br><span class="text-gold-400 font-semibold">1 попытка · выигрыш ×1.0</span></p>
           <span class="diff-mark absolute top-4 right-4 text-2xl text-gold-400">✓</span>
         </button>
         <button data-diff="hard" class="diff-card relative glass rounded-3xl border border-slate-700/60 p-6 text-center hover:-translate-y-1">
           <div class="text-5xl mb-3">🔥</div>
           <h3 class="text-2xl font-extrabold text-rose-400">Сложный</h3>
-          <p class="text-sm text-white mt-2">Вопросы для<br>настоящих знатоков</p>
+          <p class="text-sm text-white mt-2">Продвинутый режим<br><span class="text-rose-300 font-semibold">1 попытка · выигрыш ×1.5</span></p>
           <span class="diff-mark absolute top-4 right-4 text-2xl text-gold-400">✓</span>
         </button>
       </div>
@@ -341,7 +341,8 @@
         <li class="flex gap-3"><span class="text-gold-400">🔒</span> Суммы <b class="text-emerald-400">100 ₸ / 0.20 €</b> и <b class="text-emerald-400">500 ₸ / 1.00 €</b> — несгораемые: ниже них вы не упадёте.</li>
         <li class="flex gap-3"><span class="text-gold-400">🛟</span> Три подсказки (каждую можно использовать один раз): <b class="text-blue-300">50:50</b>, <b class="text-blue-300">Помощь зала</b> и <b class="text-blue-300">Звонок другу</b>.</li>
         <li class="flex gap-3"><span class="text-gold-400">💼</span> В любой момент можно нажать «Забрать деньги» и уйти с текущим выигрышем.</li>
-        <li class="flex gap-3"><span class="text-gold-400">📅</span> На день доступно <b class="text-white">3 попытки</b> — после окончания возвращайтесь завтра.</li>
+        <li class="flex gap-3"><span class="text-gold-400">📅</span> На день доступно <b class="text-white">3 попытки</b> на режимах «Средний» и «Сложный». Режим «Лёгкий» — бесплатная тренировка: попытки не тратятся и не сгорают при сворачивании браузера.</li>
+        <li class="flex gap-3"><span class="text-gold-400">📈</span> Режим «Сложный» начисляет выигрыш с коэффициентом <b class="text-gold-400">×1.5</b> (+50%): базовые 1000 ₸ станут 1500 ₸. В тренировке баланс не пополняется.</li>
         <li class="flex gap-3"><span class="text-gold-400">💰</span> Выигрыш копится в <b class="text-emerald-300">балансе</b> — нажмите на баланс в меню, чтобы получить деньги.</li>
         <li class="flex gap-3"><span class="text-gold-400">🏆</span> Дойдите до конца и получите главный приз — <b class="text-gold-400">1000 ₸ / 2 €</b>!</li>
       </ul>
@@ -392,10 +393,23 @@
       <h3 id="result-title" class="text-3xl font-extrabold mb-2">Победа!</h3>
       <p class="text-slate-400 mb-4">Ваш выигрыш:</p>
       <div id="result-amount" class="text-4xl font-extrabold text-gradient-gold mb-6">€0</div>
+      <div id="result-note" class="hidden text-sm font-semibold text-amber-300/90 -mt-4 mb-6"></div>
       <div class="grid grid-cols-2 gap-3">
         <button id="btn-again" class="py-3 rounded-xl font-bold bg-gradient-to-r from-gold-500 to-gold-400 text-slate-900">Играть снова</button>
         <button id="btn-menu" class="py-3 rounded-xl font-bold border border-slate-600 text-slate-200 hover:bg-slate-800/60 transition">В меню</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Попытка сгорела (анти-чит) -->
+  <div id="modal-burned" class="modal-backdrop fixed inset-0 z-50 hidden items-center justify-center bg-black/70 p-4">
+    <div class="modal-panel glass rounded-3xl border border-amber-400/40 w-full max-w-md p-6 text-center shadow-[0_0_40px_rgba(245,158,11,.25)]">
+      <div class="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center text-4xl mb-3 shadow-[0_0_30px_rgba(245,158,11,.5)]">⚠️</div>
+      <h3 class="text-2xl font-extrabold text-amber-300 mb-3">⚠️ Попытка сгорела!</h3>
+      <p class="text-slate-300 text-sm leading-relaxed mb-6">
+        Попытка сгорела из-за выхода из игры или сворачивания браузера.
+      </p>
+      <button class="modal-close w-full py-3 rounded-xl font-bold bg-gradient-to-r from-amber-500 to-orange-500 text-slate-900 hover:brightness-110 transition">Понятно</button>
     </div>
   </div>
   <script>
@@ -412,7 +426,12 @@
   const TIME_PER_QUESTION = 30;         // секунд на вопрос
   const MAX_ATTEMPTS = 3;               // попыток в день на устройство
   const LETTERS = ['A', 'B', 'C', 'D'];
-  const DIFF_LABELS = { easy: 'Лёгкий', medium: 'Средний', hard: 'Сложный' };
+  // Режимы сложности: попытки, анти-чит и коэффициент выигрыша
+  const DIFF_CONFIG = {
+    easy:   { label: 'Лёгкий',  attempts: false, antiCheat: false, multiplier: 0   }, // тренировка: без попыток, баланс не пополняется
+    medium: { label: 'Средний', attempts: true,  antiCheat: true,  multiplier: 1   }, // стандарт ×1.0
+    hard:   { label: 'Сложный', attempts: true,  antiCheat: true,  multiplier: 1.5 }, // продвинутый ×1.5 (+50%)
+  };
 
   const RING_CIRC = 2 * Math.PI * 44; // длина окружности кольца таймера
 
@@ -1534,6 +1553,7 @@
     deadline: 0,            // абсолютная концовка времени (Date.now() + ...)
     timerId: null,
     lastTick: 0,
+    isGameActive: false,    // идёт ли активный ход (для анти-чита: сворачивание/вкладка)
     lifelines: { fifty: false, audience: false, phone: false }, // true = использована
   };
 
@@ -1604,18 +1624,26 @@
     return used;
   }
 
-  // Обновить статус попыток и доступность кнопки старта
+  // Обновить статус попыток и доступность кнопки старта (с учётом режима)
   function updateAttemptsUI() {
     const left = Math.max(0, MAX_ATTEMPTS - getAttempts());
+    const cfg = DIFF_CONFIG[state.difficulty];
     const el = $('#attempts-status');
-    el.textContent = 'Осталось попыток на сегодня: ' + left + ' из ' + MAX_ATTEMPTS;
-    el.classList.toggle('text-rose-400', left === 0);
-    el.classList.toggle('text-slate-300', left > 0);
+    if (cfg.attempts) {
+      el.textContent = 'Осталось попыток на сегодня: ' + left + ' из ' + MAX_ATTEMPTS;
+    } else {
+      el.textContent = '🌱 Тренировка — попытки не тратятся (осталось ' + left + ' из ' + MAX_ATTEMPTS + ')';
+    }
+    el.classList.toggle('text-rose-400', cfg.attempts && left === 0);
+    el.classList.toggle('text-emerald-300', !cfg.attempts);
+    el.classList.toggle('text-slate-300', cfg.attempts && left > 0);
+    // Блокируем старт, только если режиму нужны попытки, а их нет
+    const blocked = cfg.attempts && left === 0;
     const btn = $('#btn-start');
-    btn.disabled = left === 0;
-    btn.classList.toggle('opacity-40', left === 0);
-    btn.classList.toggle('pointer-events-none', left === 0);
-    btn.title = left === 0 ? 'Попытки закончились — возвращайтесь завтра' : '';
+    btn.disabled = blocked;
+    btn.classList.toggle('opacity-40', blocked);
+    btn.classList.toggle('pointer-events-none', blocked);
+    btn.title = blocked ? 'Попытки закончились — возвращайтесь завтра или поиграйте на «Лёгком»' : '';
   }
 
   // Накопительный баланс (тенге)
@@ -1677,6 +1705,7 @@
   function showScreen(id) {
     $$('.screen').forEach((s) => s.classList.toggle('hidden', s.id !== id));
     if (id === 'menu-screen') {
+      state.isGameActive = false; // в меню активной игры нет
       updateAttemptsUI();
       updateBalanceUI();
     }
@@ -1743,7 +1772,7 @@
     $('#question-text').textContent = q.q;
     $('#game-progress').innerHTML =
       'Вопрос <span class="text-gold-400">' + (state.step + 1) + '</span> из ' + TOTAL_QUESTIONS;
-    $('#game-difficulty').textContent = DIFF_LABELS[state.difficulty];
+    $('#game-difficulty').textContent = DIFF_CONFIG[state.difficulty].label;
 
     $$('#answers .answer-btn').forEach((btn, i) => {
       btn.querySelector('.hex-letter').textContent = LETTERS[i];
@@ -1867,15 +1896,20 @@
 
   function finishGame(kind) {
     clearInterval(state.timerId);
+    state.isGameActive = false; // игра завершена — анти-чит отключается
     let amount = 0;
     if (kind === 'win') { amount = PRIZES[PRIZES.length - 1]; Audio.win(); }
     else if (kind === 'lose') { amount = safeAmount(); Audio.lose(); }
     else { amount = walkAwayAmount(); Audio.click(); }
-    addEarnings(amount); // пополняем накопительный баланс
+    // Начисление с коэффициентом режима: средний ×1.0, сложный ×1.5, лёгкий ×0 (тренировка)
+    const paid = Math.round(amount * DIFF_CONFIG[state.difficulty].multiplier);
+    if (paid > 0) addEarnings(paid);
     showResult(kind, amount);
   }
 
   function showResult(kind, amount) {
+    const cfg = DIFF_CONFIG[state.difficulty];
+    const paid = Math.round(amount * cfg.multiplier);
     const icon = $('#result-icon');
     const title = $('#result-title');
     if (kind === 'win') {
@@ -1891,7 +1925,19 @@
       title.textContent = 'Вы забрали деньги';
       title.className = 'text-3xl font-extrabold mb-2 text-blue-300';
     }
-    $('#result-amount').textContent = formatMoney(amount);
+    // Показываем начисленную сумму (в тренировке — базовую, без пополнения)
+    $('#result-amount').textContent = formatMoney(cfg.multiplier === 0 ? amount : paid);
+    // Пояснение под суммой: тренировка или множитель ×1.5
+    const note = $('#result-note');
+    if (cfg.multiplier === 0) {
+      note.textContent = '🔧 Тренировка: баланс не пополняется, попытка не тратится';
+      note.classList.remove('hidden');
+    } else if (cfg.multiplier !== 1) {
+      note.textContent = '⚡ Сложный режим ×1.5: базовый выигрыш ' + formatMoney(amount) + ' → начислено ' + formatMoney(paid);
+      note.classList.remove('hidden');
+    } else {
+      note.classList.add('hidden');
+    }
     openModal('modal-result');
   }
   /* ================================================================
@@ -2012,6 +2058,7 @@
     state.questions = pickQuestions(diff);
     state.step = 0;
     state.locked = false;
+    state.isGameActive = true; // активный ход — включаем анти-чит
     state.removed = [];
     state.lifelines = { fifty: false, audience: false, phone: false };
     ['lf-fifty', 'lf-audience', 'lf-phone'].forEach((id) => $('#' + id).classList.remove('used'));
@@ -2023,6 +2070,35 @@
   function selectDifficulty(diff) {
     state.difficulty = diff;
     $$('.diff-card').forEach((c) => c.classList.toggle('selected', c.dataset.diff === diff));
+    updateAttemptsUI(); // статус попыток зависит от режима
+  }
+
+  /* ================================================================
+     АНТИ-ЧИТ: выход/сворачивание во время активного вопроса
+  ================================================================ */
+  // Гасит активную игру и записывает причину «сгорания» попытки.
+  // Попытка НЕ списывается повторно — она уже списана при старте.
+  // В «Лёгком» (тренировочном) режиме анти-чит не действует — возвращаем false.
+  function burnActiveGame(reason) {
+    if (!state.isGameActive) return false;
+    if (!DIFF_CONFIG[state.difficulty].antiCheat) return false;
+    clearInterval(state.timerId);
+    state.isGameActive = false;
+    state.locked = true;
+    localStorage.setItem('burned_reason', reason || 'exit');
+    return true;
+  }
+
+  // Проверка флага при возврате на вкладку / перезагрузке страницы
+  function checkBurnedFlag() {
+    if (localStorage.getItem('burned_reason') !== 'exit') return;
+    localStorage.removeItem('burned_reason');
+    // На всякий случай гасим остатки игры
+    clearInterval(state.timerId);
+    state.isGameActive = false;
+    state.locked = true;
+    showScreen('menu-screen');
+    openModal('modal-burned');
   }
 
   /* ================================================================
@@ -2033,10 +2109,13 @@
     selectDifficulty(c.dataset.diff);
   }));
 
-  // Единая точка старта игры: списывает попытку, блокирует запуск без попыток
+  // Единая точка старта игры: списывает попытку (кроме «Лёгкого») и запускает игру
   function tryStartGame() {
-    if (getAttempts() >= MAX_ATTEMPTS) return false;
-    spendAttempt(); // попытка списывается СРАЗУ — закрытие/перезагрузка её не вернёт
+    const cfg = DIFF_CONFIG[state.difficulty];
+    if (cfg.attempts) {
+      if (getAttempts() >= MAX_ATTEMPTS) return false;
+      spendAttempt(); // попытка списывается СРАЗУ — закрытие/перезагрузка её не вернёт
+    }
     updateAttemptsUI();
     startGame(state.difficulty);
     return true;
@@ -2133,10 +2212,35 @@
     selectAnswer(idx);
   });
 
+  // ===== Анти-чит: сворачивание/переключение вкладки во время игры =====
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      // Вкладка скрыта (Safari свёрнут, звонок, другой таб) во время активного хода.
+      // В «Лёгком» режиме burnActiveGame вернёт false — игра продолжится.
+      if (state.isGameActive && burnActiveGame('exit')) {
+        showScreen('menu-screen'); // игрок этого не видит — вкладка скрыта
+      }
+    } else {
+      // Вернулись на вкладку — если попытка сгорела, показываем предупреждение
+      checkBurnedFlag();
+    }
+  });
+
+  // Страница уходит (закрытие/перезагрузка) во время активной игры
+  window.addEventListener('pagehide', () => {
+    burnActiveGame('exit');
+  });
+
+  // iOS Safari может вернуть страницу из bfcache (pageshow), минуя visibilitychange
+  window.addEventListener('pageshow', () => {
+    checkBurnedFlag();
+  });
+
   // ===== Инициализация =====
   updateSoundUI();
   updateAttemptsUI();
   updateBalanceUI();
+  checkBurnedFlag(); // перезагрузка после «сгорания» — показываем предупреждение
   </script>
 </body>
 </html>
