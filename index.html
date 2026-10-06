@@ -25,6 +25,9 @@
   };
 </script>
 
+<!-- PeerJS (мультиплеер 1v1) -->
+<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+
 <style>
   :root {
     --gold: #f59e0b;
@@ -216,6 +219,9 @@
         <button id="btn-rules" class="px-6 py-2 text-sm font-semibold text-slate-300 hover:text-white border border-slate-700 rounded-full transition hover:border-gold-400/60 hover:shadow-[0_0_20px_rgba(245,158,11,.25)]">
           📄 Правила игры
         </button>
+        <button id="btn-mp" class="px-6 py-2 text-sm font-semibold text-slate-300 hover:text-white border border-slate-700 rounded-full transition hover:border-blue-400/60 hover:shadow-[0_0_20px_rgba(59,130,246,.25)]">
+          🎯 Мультиплеер (1v1)
+        </button>
       </div>
 
     </div>
@@ -328,6 +334,102 @@
 
     </div>
   </div>
+  <!-- ======================= МЕНЮ МУЛЬТИПЛЕЕРА ======================= -->
+  <div id="mp-screen" class="screen hidden min-h-screen px-4 py-10">
+    <div class="w-full max-w-3xl mx-auto">
+      <div class="flex items-center justify-between mb-8">
+        <button id="btn-mp-back" class="hex w-10 h-10 bg-slate-800/80 border border-slate-600/60 flex items-center justify-center text-slate-300 hover:text-white hover:border-gold-400/60 transition" title="В меню">←</button>
+        <div class="text-xs sm:text-sm tracking-[0.3em] uppercase text-slate-400">Мультиплеер</div>
+      </div>
+
+      <div class="text-center mb-8 animate-fade-up">
+        <h1 class="text-4xl sm:text-5xl font-extrabold text-gradient-gold drop-shadow-[0_0_30px_rgba(245,158,11,.45)]">Дуэль 1v1</h1>
+        <p class="mt-3 text-sm text-slate-400">Очки дуэли действуют только внутри матча и <b class="text-emerald-300">не влияют на денежный баланс</b>.</p>
+      </div>
+
+      <div class="grid sm:grid-cols-2 gap-5">
+        <!-- Создать дуэль (хост) -->
+        <div class="glass rounded-3xl border border-slate-700/60 p-6 text-center">
+          <div class="text-4xl mb-3">🎯</div>
+          <h3 class="text-xl font-extrabold text-gold-400 mb-2">Создать дуэль</h3>
+          <p class="text-sm text-slate-400 mb-4">Вы — Игрок 1 (хост). Отправьте ссылку сопернику и ждите его подключения.</p>
+          <button id="btn-mp-create" class="w-full py-3 rounded-xl font-bold bg-gradient-to-r from-gold-500 to-gold-400 text-slate-900 hover:brightness-110 transition">Создать комнату</button>
+          <div id="mp-create-box" class="hidden mt-4 text-left">
+            <div class="text-[11px] uppercase tracking-widest text-slate-400 mb-1">Ссылка для соперника</div>
+            <div id="mp-room-code" class="text-xs text-blue-300 break-all glass rounded-xl p-3 mb-3 border border-slate-600/60">—</div>
+            <button id="btn-mp-copy" class="w-full py-2.5 rounded-xl font-bold border border-emerald-400/50 text-emerald-300 hover:bg-emerald-500/15 transition">📋 Скопировать ссылку</button>
+          </div>
+        </div>
+
+        <!-- Присоединиться -->
+        <div class="glass rounded-3xl border border-slate-700/60 p-6 text-center">
+          <div class="text-4xl mb-3">🔗</div>
+          <h3 class="text-xl font-extrabold text-blue-300 mb-2">Присоединиться</h3>
+          <p class="text-sm text-slate-400 mb-4">Введите код комнаты соперника — или просто откройте его ссылку.</p>
+          <input id="mp-room-input" type="text" placeholder="Код комнаты, напр. duel-a1b2c3"
+            class="w-full mb-3 px-4 py-2.5 rounded-xl glass border border-slate-600/60 text-sm text-white text-center placeholder:text-slate-500 focus:border-gold-400/60 outline-none">
+          <button id="btn-mp-join" class="w-full py-3 rounded-xl font-bold bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:brightness-110 transition">Присоединиться</button>
+        </div>
+      </div>
+
+      <div id="mp-status" class="mt-8 text-center glass rounded-2xl border border-slate-700/60 px-5 py-3 text-sm font-semibold text-slate-300">
+        Создайте комнату или введите код соперника
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================= ЭКРАН ДУЭЛИ ======================= -->
+  <div id="duel-screen" class="screen hidden min-h-screen px-4 py-5">
+    <div class="w-full max-w-4xl mx-auto">
+
+      <!-- Верхняя панель: выход, счёт, таймер -->
+      <header class="glass rounded-2xl border border-slate-700/60 px-4 py-3 flex items-center justify-between gap-3 flex-wrap mb-5">
+        <button id="btn-duel-exit" class="hex w-9 h-9 bg-slate-800/80 border border-slate-600/60 flex items-center justify-center text-slate-300 hover:text-white hover:border-rose-400/60 transition" title="В меню">✕</button>
+
+        <!-- Плашка счёта матча -->
+        <div id="duel-score" class="text-base sm:text-xl font-extrabold text-gold-400">Вы: 0 оч. | Соперник: 0 оч.</div>
+
+        <div class="flex items-center gap-3">
+          <div id="duel-progress" class="text-[11px] uppercase tracking-widest text-slate-500">Вопрос 1 из 10</div>
+          <div id="duel-timer" class="text-2xl font-extrabold text-gold-400 w-10 text-center">20</div>
+        </div>
+      </header>
+
+      <!-- Плашка событий (анимации раунда) -->
+      <div id="duel-toast" class="hidden mb-4 rounded-2xl border border-gold-400/40 bg-gold-500/10 px-4 py-3 text-center font-bold text-gold-300 animate-pop"></div>
+
+      <main class="glass rounded-3xl border border-slate-700/60 p-5 sm:p-8">
+        <div class="flex items-center justify-between gap-3 mb-5 flex-wrap">
+          <span id="duel-question-theme" class="inline-block px-4 py-1 rounded-full text-xs font-bold uppercase tracking-widest bg-blue-500/15 border border-blue-400/40 text-blue-300">Тема</span>
+          <span class="text-[11px] uppercase tracking-widest text-slate-500">⚔️ Гонка ответов — очки не влияют на баланс</span>
+        </div>
+
+        <div class="mb-6 animate-fade-up">
+          <h2 id="duel-question-text" class="text-xl sm:text-2xl font-bold leading-snug">Ожидание вопроса…</h2>
+        </div>
+
+        <div id="duel-answers" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <button data-i="0" class="answer-btn glass rounded-2xl border border-slate-600/50 px-4 py-4 flex items-center gap-4 text-left">
+            <span class="hex-letter hex shrink-0 w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center font-extrabold text-white">A</span>
+            <span class="answer-text font-semibold text-base sm:text-lg">—</span>
+          </button>
+          <button data-i="1" class="answer-btn glass rounded-2xl border border-slate-600/50 px-4 py-4 flex items-center gap-4 text-left">
+            <span class="hex-letter hex shrink-0 w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center font-extrabold text-white">B</span>
+            <span class="answer-text font-semibold text-base sm:text-lg">—</span>
+          </button>
+          <button data-i="2" class="answer-btn glass rounded-2xl border border-slate-600/50 px-4 py-4 flex items-center gap-4 text-left">
+            <span class="hex-letter hex shrink-0 w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center font-extrabold text-white">C</span>
+            <span class="answer-text font-semibold text-base sm:text-lg">—</span>
+          </button>
+          <button data-i="3" class="answer-btn glass rounded-2xl border border-slate-600/50 px-4 py-4 flex items-center gap-4 text-left">
+            <span class="hex-letter hex shrink-0 w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center font-extrabold text-white">D</span>
+            <span class="answer-text font-semibold text-base sm:text-lg">—</span>
+          </button>
+        </div>
+      </main>
+    </div>
+  </div>
+
   <!-- ======================= МОДАЛКИ ======================= -->
 
   <!-- Правила -->
@@ -398,6 +500,17 @@
         <button id="btn-again" class="py-3 rounded-xl font-bold bg-gradient-to-r from-gold-500 to-gold-400 text-slate-900">Играть снова</button>
         <button id="btn-menu" class="py-3 rounded-xl font-bold border border-slate-600 text-slate-200 hover:bg-slate-800/60 transition">В меню</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Итог дуэли -->
+  <div id="modal-duel-result" class="modal-backdrop fixed inset-0 z-50 hidden items-center justify-center bg-black/80 p-4">
+    <div class="modal-panel glass rounded-3xl border border-slate-700/60 w-full max-w-md p-8 text-center">
+      <div id="duel-result-icon" class="text-6xl mb-4">🏆</div>
+      <h3 id="duel-result-title" class="text-3xl font-extrabold mb-3 text-gold-400">ПОБЕДА!</h3>
+      <div id="duel-result-score" class="text-xl font-extrabold text-slate-100 mb-2">Вы: 0 оч. | Соперник: 0 оч.</div>
+      <p class="text-xs text-slate-500 mb-6">Очки дуэли — только внутри матча. Денежный баланс не изменён.</p>
+      <button id="btn-duel-menu" class="w-full py-3 rounded-xl font-bold bg-gradient-to-r from-gold-500 to-gold-400 text-slate-900 hover:brightness-110 transition">Вернуться в главное меню</button>
     </div>
   </div>
 
@@ -2102,6 +2215,409 @@
   }
 
   /* ================================================================
+     МУЛЬТИПЛЕЕР 1v1 (PeerJS)
+     Очки дуэли живут ТОЛЬКО внутри матча и НЕ влияют на game_balance.
+  ================================================================ */
+  const DUEL_QUESTIONS = 10;        // вопросов в дуэли
+  const DUEL_TIME = 20;             // секунд на вопрос в дуэли
+  const DUEL_PTS_CORRECT = 100;     // очков за правильный ответ
+  const DUEL_PTS_WRONG = -50;       // очков за ошибку
+  const DUEL_ROOM_BASE = 'https://xxvvssx.github.io/'; // база ссылки для прод-ссылок
+
+  const mp = {
+    peer: null, conn: null,
+    isHost: false, myPlayer: 1,      // 1 = хост (Игрок 1), 2 = гость (Игрок 2)
+    roomCode: null,
+    questions: [], qIndex: 0,
+    scores: { p1: 0, p2: 0 },
+    blocked: { 1: false, 2: false },
+    roundActive: false, running: false,
+    answered: false, myChoice: null,
+    timeLeft: DUEL_TIME, deadline: 0,
+    hostTimerId: null, clientTimerId: null, roundTimerId: null, countdownId: null,
+  };
+
+  function mpStatus(text) { $('#mp-status').textContent = text; }
+
+  function mpToast(text) {
+    const t = $('#duel-toast');
+    if (!text) { t.classList.add('hidden'); return; }
+    t.textContent = text;
+    t.classList.remove('hidden');
+    t.classList.remove('animate-pop'); void t.offsetWidth; t.classList.add('animate-pop');
+  }
+
+  function mpMyScore() { return mp.myPlayer === 1 ? mp.scores.p1 : mp.scores.p2; }
+  function mpOppScore() { return mp.myPlayer === 1 ? mp.scores.p2 : mp.scores.p1; }
+
+  function mpRenderScore() {
+    $('#duel-score').textContent = 'Вы: ' + mpMyScore() + ' оч. | Соперник: ' + mpOppScore() + ' оч.';
+  }
+
+  function mpClearTimers() {
+    clearInterval(mp.hostTimerId);
+    clearInterval(mp.clientTimerId);
+    clearTimeout(mp.roundTimerId);
+    clearInterval(mp.countdownId);
+  }
+
+  function mpSend(data) {
+    if (mp.conn && mp.conn.open) { try { mp.conn.send(data); } catch (e) { /* связь пропала */ } }
+  }
+
+  function mpCleanup() {
+    mpClearTimers();
+    if (mp.conn) { try { mp.conn.close(); } catch (e) {} mp.conn = null; }
+    if (mp.peer) { try { mp.peer.destroy(); } catch (e) {} mp.peer = null; }
+    mp.isHost = false; mp.running = false; mp.roundActive = false;
+    mp.answered = false; mp.myChoice = null;
+    mp.questions = []; mp.qIndex = 0;
+    mp.scores = { p1: 0, p2: 0 };
+    mp.blocked = { 1: false, 2: false };
+    $('#mp-create-box').classList.add('hidden');
+    $('#mp-room-input').value = '';
+  }
+
+  // Выход из дуэли/лобби в главное меню (game_balance не затрагивается)
+  function mpLeaveToMenu() {
+    mpCleanup();
+    showScreen('menu-screen');
+  }
+
+  /* ---------------- Лобби: создание / подключение ---------------- */
+  function mpCreate() {
+    if (typeof Peer === 'undefined') { mpStatus('⚠️ PeerJS не загрузился — проверьте интернет-соединение'); return; }
+    mpCleanup();
+    mp.isHost = true;
+    mp.myPlayer = 1;
+    mpStatus('Создаём комнату...');
+    const code = 'duel-' + Math.random().toString(36).slice(2, 8);
+    const peer = new Peer(code);
+    mp.peer = peer;
+    peer.on('open', (id) => {
+      mp.roomCode = id;
+      // На github.io ссылка получится https://xxvvssx.github.io/?room=ID,
+      // локально — origin текущей страницы (та же разметка ?room=)
+      const base = location.protocol.startsWith('http') ? location.origin + location.pathname : DUEL_ROOM_BASE;
+      $('#mp-room-code').textContent = base + '?room=' + id;
+      $('#mp-create-box').classList.remove('hidden');
+      mpStatus('Ожидание соперника... Отправьте ссылку');
+    });
+    peer.on('connection', (conn) => { mp.conn = conn; mpSetupConnection(conn); });
+    peer.on('error', (err) => { mpStatus('Ошибка подключения: ' + err.type); });
+  }
+
+  function mpJoin(code) {
+    if (typeof Peer === 'undefined') { mpStatus('⚠️ PeerJS не загрузился — проверьте интернет-соединение'); return; }
+    code = String(code || '').trim();
+    if (!code) { mpStatus('Введите код комнаты'); return; }
+    mpCleanup();
+    mp.isHost = false;
+    mp.myPlayer = 2;
+    mpStatus('Подключение к комнате ' + code + '...');
+    const peer = new Peer();
+    mp.peer = peer;
+    peer.on('open', () => {
+      const conn = peer.connect(code, { reliable: true });
+      mp.conn = conn;
+      mpSetupConnection(conn);
+    });
+    peer.on('error', (err) => { mpStatus('Ошибка подключения: ' + err.type); });
+  }
+
+  function mpSetupConnection(conn) {
+    const start = () => mpOnConnected();
+    if (conn.open) start(); else conn.on('open', start);
+    conn.on('data', (data) => mpHandleMessage(data));
+    conn.on('close', () => mpOnConnectionClosed());
+  }
+
+  // У обоих игроков: «Игрок найден! Старт через 3... 2... 1...»
+  function mpOnConnected() {
+    let n = 3;
+    mpStatus('Игрок найден! Старт через ' + n + '...');
+    mp.countdownId = setInterval(() => {
+      n--;
+      if (n > 0) {
+        mpStatus('Игрок найден! Старт через ' + n + '...');
+      } else {
+        clearInterval(mp.countdownId);
+        if (mp.isHost) {
+          mpStartMatch(); // хост запускает раунд и рассылает START_GAME
+        } else {
+          showScreen('duel-screen');
+          mpRenderScore();
+          mpToast('Соперник найден! Приготовьтесь...');
+        }
+      }
+    }, 1000);
+  }
+
+  function mpOnConnectionClosed() {
+    if (mp.running) {
+      mp.running = false;
+      mp.roundActive = false;
+      mpClearTimers();
+      $('#duel-result-icon').textContent = '🔌';
+      $('#duel-result-title').textContent = 'Соперник отключился!';
+      $('#duel-result-title').className = 'text-3xl font-extrabold mb-3 text-rose-400';
+      $('#duel-result-score').textContent = 'Вы: ' + mpMyScore() + ' оч. | Соперник: ' + mpOppScore() + ' оч.';
+      openModal('modal-duel-result');
+    } else {
+      mpStatus('Соперник отключился. Попробуйте снова.');
+    }
+  }
+
+  /* ---------------- Матч (хост = локальный сервер) ---------------- */
+  function mpStartMatch() {
+    mp.questions = pickQuestions(state.difficulty); // вопросы дуэли — из выбранной сложности
+    mp.qIndex = 0;
+    mp.scores = { p1: 0, p2: 0 };
+    mp.running = true;
+    showScreen('duel-screen');
+    mpRenderScore();
+    mpSend({ type: 'START_GAME', questions: mp.questions });
+    mpStartRound();
+  }
+
+  function mpStartRound() {
+    mp.blocked = { 1: false, 2: false };
+    mp.roundActive = true;
+    mp.answered = false;
+    mp.myChoice = null;
+    mp.deadline = Date.now() + DUEL_TIME * 1000;
+    mp.timeLeft = DUEL_TIME;
+    clearInterval(mp.hostTimerId);
+    mp.hostTimerId = setInterval(() => mpHostTick(), 100);
+    mpSyncState('CONTINUE', null);
+  }
+
+  function mpHostTick() {
+    mp.timeLeft = Math.max(0, (mp.deadline - Date.now()) / 1000);
+    mpUpdateTimerUI();
+    if (mp.timeLeft <= 0) {
+      clearInterval(mp.hostTimerId);
+      // Время истекло: очков никто не получает
+      mpEndRound({ kind: 'timeout' });
+    }
+  }
+
+  function mpUpdateTimerUI() {
+    const t = Math.max(0, mp.timeLeft);
+    const el = $('#duel-timer');
+    el.textContent = Math.ceil(t);
+    el.classList.toggle('text-rose-400', t <= 5);
+    el.classList.toggle('text-gold-400', t > 5);
+  }
+
+  // Клиентский таймер — синхронизация от timeLeft хоста
+  function mpStartClientTimer(sec) {
+    clearInterval(mp.clientTimerId);
+    const deadline = Date.now() + sec * 1000;
+    mp.timeLeft = sec;
+    mpUpdateTimerUI();
+    mp.clientTimerId = setInterval(() => {
+      mp.timeLeft = Math.max(0, (deadline - Date.now()) / 1000);
+      mpUpdateTimerUI();
+      if (mp.timeLeft <= 0) clearInterval(mp.clientTimerId);
+    }, 100);
+  }
+
+  // Обработка ответа — ТОЛЬКО на хосте
+  function mpHandleAnswer(player, idx) {
+    if (!mp.roundActive || mp.blocked[player]) return;
+    const q = mp.questions[mp.qIndex];
+    const key = player === 1 ? 'p1' : 'p2';
+
+    if (idx === q.a) {
+      // Правильно первым: +100, раунд завершён, соперник мгновенно блокируется
+      mp.scores[key] += DUEL_PTS_CORRECT;
+      mp.blocked[1] = true;
+      mp.blocked[2] = true;
+      mpEndRound({ kind: 'correct', player });
+    } else {
+      // Неправильно: -50, игрок затухает, соперник ВСЁ ЕЩЁ МОЖЕТ отвечать
+      mp.scores[key] += DUEL_PTS_WRONG;
+      mp.blocked[player] = true;
+      if (mp.blocked[1] && mp.blocked[2]) {
+        mpEndRound({ kind: 'wrong', player });
+      } else {
+        mpSyncState('CONTINUE', { kind: 'wrong', player });
+      }
+    }
+  }
+
+  function mpEndRound(event) {
+    mp.roundActive = false;
+    clearInterval(mp.hostTimerId);
+    mpSyncState('ROUND_OVER', event);
+    // Через 2 секунды — следующий вопрос или конец дуэли
+    mp.roundTimerId = setTimeout(() => {
+      mp.qIndex++;
+      if (mp.qIndex >= mp.questions.length) mpGameOver();
+      else mpStartRound();
+    }, 2000);
+  }
+
+  function mpGameOver() {
+    mp.running = false;
+    const winner = mp.scores.p1 > mp.scores.p2 ? 1 : (mp.scores.p2 > mp.scores.p1 ? 2 : 0); // 0 = ничья
+    const msg = { type: 'GAME_OVER', scores: { p1: mp.scores.p1, p2: mp.scores.p2 }, winner: winner };
+    mpSend(msg);
+    mpShowResult(msg);
+  }
+
+  // Сборка состояния: отправить сопернику И применить локально (единый рендер)
+  function mpSyncState(status, event) {
+    const q = mp.questions[mp.qIndex];
+    const msg = {
+      type: 'UPDATE_STATE',
+      questionIndex: mp.qIndex,
+      status: status,
+      scores: { p1: mp.scores.p1, p2: mp.scores.p2 },
+      blockedPlayers: [mp.blocked[1] ? 1 : null, mp.blocked[2] ? 2 : null].filter(Boolean),
+      question: status === 'CONTINUE' ? { c: q.c, q: q.q, o: q.o } : null,
+      correctIndex: status === 'ROUND_OVER' ? q.a : null,
+      event: event || null,
+      timeLeft: DUEL_TIME,
+    };
+    mpSend(msg);
+    mpApplyState(msg);
+  }
+
+  /* ---------------- Рендер (одинаков для хоста и клиента) ---------------- */
+  function mpApplyState(msg) {
+    mp.scores = msg.scores;
+    mpRenderScore();
+    $('#duel-progress').textContent = 'Вопрос ' + (msg.questionIndex + 1) + ' из ' + (mp.questions.length || DUEL_QUESTIONS);
+    const myBlocked = msg.blockedPlayers.includes(mp.myPlayer);
+
+    if (msg.status === 'CONTINUE') {
+      mpRenderQuestion(msg.question);
+      mpToast(msg.event ? mpEventText(msg.event) : '');
+      mpSetEnabled(!myBlocked && !mp.answered);
+      if (!mp.isHost) mpStartClientTimer(msg.timeLeft);
+    } else {
+      // ROUND_OVER: таймер в 0, подсветка правильного, итог раунда
+      clearInterval(mp.hostTimerId);
+      clearInterval(mp.clientTimerId);
+      mp.timeLeft = 0;
+      mpUpdateTimerUI();
+      mpSetEnabled(false);
+      mpHighlight(msg.correctIndex);
+      mpToast(mpEventText(msg.event));
+    }
+  }
+
+  function mpRenderQuestion(q) {
+    if (!q) return;
+    $('#duel-question-theme').textContent = q.c;
+    $('#duel-question-text').textContent = q.q;
+    $$('#duel-answers .answer-btn').forEach((btn, i) => {
+      btn.querySelector('.hex-letter').textContent = LETTERS[i];
+      btn.querySelector('.answer-text').textContent = q.o[i];
+      btn.classList.remove('selected', 'correct', 'wrong', 'dimmed');
+      btn.disabled = false;
+    });
+  }
+
+  function mpSetEnabled(on) {
+    $$('#duel-answers .answer-btn').forEach((btn) => {
+      btn.classList.toggle('dimmed', !on);
+      btn.disabled = !on;
+    });
+  }
+
+  function mpHighlight(correctIndex) {
+    const btns = $$('#duel-answers .answer-btn');
+    if (correctIndex !== null && btns[correctIndex]) btns[correctIndex].classList.add('correct');
+    if (mp.myChoice !== null && mp.myChoice !== correctIndex && btns[mp.myChoice]) btns[mp.myChoice].classList.add('wrong');
+  }
+
+  function mpEventText(event) {
+    if (!event) return '';
+    if (event.kind === 'timeout') return '⏰ Время вышло! Очки никому не начислены';
+    if (event.kind === 'correct') {
+      return event.player === mp.myPlayer
+        ? '✅ Правильный ответ! +' + DUEL_PTS_CORRECT + ' очков'
+        : '🔴 Соперник ответил верно! Раунд завершён';
+    }
+    if (event.kind === 'wrong') {
+      return event.player === mp.myPlayer
+        ? '❌ Вы ошиблись! ' + DUEL_PTS_WRONG + ' очков'
+        : '⚠️ Соперник ошибся! У вас есть шанс ответить!';
+    }
+    return '';
+  }
+
+  // Мой ответ: хост обрабатывает локально, гость отправляет PLAYER_ANSWER
+  function mpMyAnswer(idx) {
+    if (!mp.running || !mp.roundActive) return;
+    if (mp.answered || mp.blocked[mp.myPlayer]) return;
+    mp.answered = true;
+    mp.myChoice = idx;
+    Audio.select();
+    const btns = $$('#duel-answers .answer-btn');
+    if (btns[idx]) btns[idx].classList.add('selected');
+    mpSetEnabled(false);
+    if (mp.isHost) {
+      mpHandleAnswer(1, idx);
+    } else {
+      mpSend({ type: 'PLAYER_ANSWER', player: 2, optionIndex: idx });
+    }
+  }
+
+  // Сетевой обмен
+  function mpHandleMessage(msg) {
+    if (!msg || !msg.type) return;
+    if (msg.type === 'START_GAME') {
+      mp.questions = msg.questions;
+      mp.qIndex = 0;
+      mp.scores = { p1: 0, p2: 0 };
+      mp.running = true;
+      mp.answered = false;
+      mp.myChoice = null;
+      showScreen('duel-screen');
+      mpRenderScore();
+    } else if (msg.type === 'UPDATE_STATE') {
+      mpApplyState(msg);
+    } else if (msg.type === 'GAME_OVER') {
+      mp.running = false;
+      mp.roundActive = false;
+      mpClearTimers();
+      mpShowResult(msg);
+    } else if (msg.type === 'PLAYER_ANSWER' && mp.isHost) {
+      mpHandleAnswer(msg.player, msg.optionIndex);
+    }
+  }
+
+  // Экран итогов: ПОБЕДА! / ПОРАЖЕНИЕ / НИЧЬЯ
+  function mpShowResult(msg) {
+    const my = mp.myPlayer === 1 ? msg.scores.p1 : msg.scores.p2;
+    const opp = mp.myPlayer === 1 ? msg.scores.p2 : msg.scores.p1;
+    const icon = $('#duel-result-icon');
+    const title = $('#duel-result-title');
+    if (msg.winner === 0) {
+      icon.textContent = '🤝';
+      title.textContent = 'НИЧЬЯ';
+      title.className = 'text-3xl font-extrabold mb-3 text-blue-300';
+      Audio.click();
+    } else if (msg.winner === mp.myPlayer) {
+      icon.textContent = '🏆';
+      title.textContent = 'ПОБЕДА!';
+      title.className = 'text-3xl font-extrabold mb-3 text-gold-400';
+      Audio.win();
+    } else {
+      icon.textContent = '💔';
+      title.textContent = 'ПОРАЖЕНИЕ';
+      title.className = 'text-3xl font-extrabold mb-3 text-rose-400';
+      Audio.lose();
+    }
+    $('#duel-result-score').textContent = 'Вы: ' + my + ' оч. | Соперник: ' + opp + ' оч.';
+    openModal('modal-duel-result');
+  }
+
+  /* ================================================================
      СОБЫТИЯ
   ================================================================ */
   $$('.diff-card').forEach((c) => c.addEventListener('click', () => {
@@ -2151,6 +2667,7 @@
       closeModal(m.id);
       // Результат закрыли фоном — возвращаемся в меню, чтобы не «зависнуть» в игре
       if (m.id === 'modal-result') showScreen('menu-screen');
+      if (m.id === 'modal-duel-result') mpLeaveToMenu();
     }
   }));
 
@@ -2184,6 +2701,34 @@
   // ===== Звук вкл/выкл =====
   $$('.btn-sound').forEach((b) => b.addEventListener('click', toggleSound));
 
+  // ===== Мультиплеер: лобби =====
+  $('#btn-mp').addEventListener('click', () => { Audio.click(); showScreen('mp-screen'); });
+  $('#btn-mp-back').addEventListener('click', () => { Audio.click(); showScreen('menu-screen'); });
+  $('#btn-mp-create').addEventListener('click', () => { Audio.click(); mpCreate(); });
+  $('#btn-mp-join').addEventListener('click', () => { Audio.click(); mpJoin($('#mp-room-input').value); });
+  $('#mp-room-input').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { Audio.click(); mpJoin($('#mp-room-input').value); }
+  });
+  $('#btn-mp-copy').addEventListener('click', () => {
+    Audio.click();
+    const text = $('#mp-room-code').textContent;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text)
+        .then(() => mpStatus('Ссылка скопирована! Отправьте её сопернику.'))
+        .catch(() => window.prompt('Скопируйте ссылку:', text));
+    } else {
+      window.prompt('Скопируйте ссылку:', text);
+    }
+  });
+
+  // ===== Мультиплеер: дуэль =====
+  $$('#duel-answers .answer-btn').forEach((btn) => btn.addEventListener('click', () => {
+    if (btn.classList.contains('dimmed')) return;
+    mpMyAnswer(Number(btn.dataset.i));
+  }));
+  $('#btn-duel-exit').addEventListener('click', () => { Audio.click(); mpLeaveToMenu(); });
+  $('#btn-duel-menu').addEventListener('click', () => { Audio.click(); closeModal('modal-duel-result'); mpLeaveToMenu(); });
+
   // ===== Клавиатура: Esc — закрыть модалку, A/D + 1–4 — выбор ответа =====
   const KEY_TO_IDX = { 'a': 0, '1': 0, 'ф': 0, 'b': 1, '2': 1, 'ы': 1, 'c': 2, '3': 2, 'в': 2, 'd': 3, '4': 3, 'у': 3 };
   document.addEventListener('keydown', (e) => {
@@ -2197,16 +2742,25 @@
         closeModal(m.id);
         // Результат закрыли Esc — возвращаемся в меню, чтобы не «зависнуть» в игре
         if (m.id === 'modal-result') showScreen('menu-screen');
+        if (m.id === 'modal-duel-result') mpLeaveToMenu();
       }
       return;
     }
 
     // Ответы — только в игре и при закрытых модалках
     if ($$('.modal-backdrop:not(.hidden)').length) return;
-    if ($('#game-screen').classList.contains('hidden')) return;
 
     const idx = KEY_TO_IDX[e.key.toLowerCase()];
     if (idx === undefined) return;
+
+    // Мультиплеер: A/B/C/D и 1–4 в дуэли
+    if (!$('#duel-screen').classList.contains('hidden')) {
+      const duelBtn = $$('#duel-answers .answer-btn')[idx];
+      if (duelBtn && !duelBtn.classList.contains('dimmed')) mpMyAnswer(idx);
+      return;
+    }
+
+    if ($('#game-screen').classList.contains('hidden')) return;
     const btn = $$('#answers .answer-btn')[idx];
     if (!btn || btn.classList.contains('dimmed')) return;
     selectAnswer(idx);
@@ -2241,6 +2795,14 @@
   updateAttemptsUI();
   updateBalanceUI();
   checkBurnedFlag(); // перезагрузка после «сгорания» — показываем предупреждение
+
+  // Мультиплеер: автоподключение при открытии по ссылке ?room=ID_КОМНАТЫ
+  const roomParam = new URLSearchParams(window.location.search).get('room');
+  if (roomParam) {
+    showScreen('mp-screen');
+    mpStatus('Подключение по ссылке: ' + roomParam + '...');
+    setTimeout(() => mpJoin(roomParam), 500);
+  }
   </script>
 </body>
 </html>
