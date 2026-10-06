@@ -2236,6 +2236,7 @@
     timeLeft: DUEL_TIME, deadline: 0,
     hostTimerId: null, clientTimerId: null, roundTimerId: null, countdownId: null,
     closingByUs: false,           // мы сами закрываем соединение — не показываем «отключился»
+    appliedQIndex: -1,            // последний применённый вопрос (для сброса answered на новом)
   };
 
   function mpStatus(text) { $('#mp-status').textContent = text; }
@@ -2280,7 +2281,7 @@
     }
     if (mp.peer) { try { mp.peer.destroy(); } catch (e) {} mp.peer = null; }
     mp.isHost = false; mp.running = false; mp.roundActive = false;
-    mp.answered = false; mp.myChoice = null;
+    mp.answered = false; mp.myChoice = null; mp.appliedQIndex = -1;
     mp.questions = []; mp.qIndex = 0;
     mp.scores = { p1: 0, p2: 0 };
     mp.blocked = { 1: false, 2: false };
@@ -2405,6 +2406,7 @@
   function mpStartMatch() {
     mp.questions = pickQuestions(state.difficulty); // вопросы дуэли — из выбранной сложности
     mp.qIndex = 0;
+    mp.appliedQIndex = -1;
     mp.scores = { p1: 0, p2: 0 };
     mp.running = true;
     showScreen('duel-screen');
@@ -2521,6 +2523,22 @@
   /* ---------------- Рендер (одинаков для хоста и клиента) ---------------- */
   function mpApplyState(msg) {
     mp.scores = msg.scores;
+
+    // Синхронизация состояния игрока из сети (критично для гостя:
+    // на хосте эти значения уже выставлены локально теми же функциями)
+    mp.blocked = {
+      1: msg.blockedPlayers.indexOf(1) >= 0,
+      2: msg.blockedPlayers.indexOf(2) >= 0,
+    };
+    mp.roundActive = msg.status === 'CONTINUE';
+
+    // Новый вопрос => сбрасываем свой ответ (на хосте это уже сделал mpStartRound)
+    if (msg.questionIndex !== mp.appliedQIndex) {
+      mp.appliedQIndex = msg.questionIndex;
+      mp.answered = false;
+      mp.myChoice = null;
+    }
+
     mpRenderScore();
     $('#duel-progress').textContent = 'Вопрос ' + (msg.questionIndex + 1) + ' из ' + (mp.questions.length || DUEL_QUESTIONS);
     const myBlocked = msg.blockedPlayers.includes(mp.myPlayer);
@@ -2606,8 +2624,10 @@
     if (msg.type === 'START_GAME') {
       mp.questions = msg.questions;
       mp.qIndex = 0;
+      mp.appliedQIndex = -1;
       mp.scores = { p1: 0, p2: 0 };
       mp.running = true;
+      mp.roundActive = false; // выставит первый UPDATE_STATE
       mp.answered = false;
       mp.myChoice = null;
       showScreen('duel-screen');
